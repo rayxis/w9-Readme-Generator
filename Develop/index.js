@@ -163,7 +163,7 @@ function formatContent(content) {
 	textContent += `# ${content.title}\n\n`;
 
 	// Loop through the sections
-	sections.forEach((section, index) => {
+	sections.forEach(section => {
 		// Set the section title
 		let sectionText = `## ${section}\n\n`;
 
@@ -257,7 +257,7 @@ async function init() {
 		const content = formatContent({...title, sections, ...license, contact});
 
 		// Write the data to the readme file
-		writeToFile(fileName, content);
+		await writeToFile(fileName, content);
 	}
 }
 
@@ -265,9 +265,9 @@ async function init() {
 async function writeToFile(fileName, data) {
 	// Write the file, if possible.
 	await fs.writeFile(fileName, data)
-	        .then(data => console.log('File created successfully!'))
+	        .then(() => console.log('File created successfully!'))
 	        .catch(error => console.error(error));
 }
 
 // Function call to initialize app
-init();
+await init();
