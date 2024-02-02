@@ -54,11 +54,6 @@ const prompts   = {
 		name:    'contribution',
 		message: 'Contribution guidelines\n'
 	},
-	credit:       {
-		type:    'input',
-		name:    'contribution',
-		message: 'Contribution guidelines\n'
-	},
 	description:  {
 		type:    'editor',
 		name:    'description',
@@ -68,6 +63,12 @@ const prompts   = {
 		type:    'input',
 		name:    'email',
 		message: 'Email address\n'
+	},
+	fileExists:   {
+		type:    'list',
+		name:    'action',
+		message: `The file already exists. Do you want to update, overwrite, or cancel?`,
+		choices: ['Update', 'Overwrite', 'Cancel']
 	},
 	installation: {
 		type:    'editor',
@@ -106,6 +107,14 @@ const prompts   = {
 };
 // Questions
 const questions = [];
+// Regular Expressions
+const regex     = {
+	email:    new RegExp('Email: \\[(.*)]'),
+	github:   new RegExp('\\[https:\\/\\/github.com\\/(.*)]'),
+	license:  new RegExp('\\[!\\[License: ([\\dA-Za-z\\-.]+)]'),
+	title:    new RegExp('#\\s*(.*)\\n'),
+	sections: new RegExp('(##\\s*(.*))\\n([\\s\\S]*?)(?=(##\\s*.*|$))', 'g')
+};
 
 function checkCommandLine() {
 	// Check if the user wants to keep it simple.
@@ -116,6 +125,33 @@ function checkCommandLine() {
 		}
 }
 
+// Check if the file exists, and if so ask the user what to do about it.
+function checkFile(fileName) {
+	return fs.readFile(fileName).then(fileBuffer => {
+		const fileContents = fileBuffer.toString();
+		// If the file has content, ask the user what to do.
+		if (fileContents && fileContents.length)
+			return promptUser(['fileExists']).then(response => {
+
+				// Return with the user's response.
+				return (response.action === 'Update')
+					// If the user chooses to update, return the parsed data.
+				       ? parseFileContent(fileContents)
+					// Otherwise, return the overwrite state. (Overwrite: true; Cancel: false)
+				       : (response.action === 'Overwrite');
+			});
+		else return true;
+	}).catch(error => {
+		// It's okay if the file doesn't exist.
+		if (error.code === 'ENOENT') return true;
+
+		// If the file exists but permissions are preventing access, fail.
+		console.error('ERROR:', error.message);
+		return false;
+	}).then(result => {return result});
+}
+
+// Format the readme file content for the user.
 function formatContent(content) {
 	const sections  = ['Description', 'Installation', 'Usage', 'Contribution', 'Tests', 'Questions', 'License'];
 	const toc       = '## Table of Contents\n\n' +
@@ -127,14 +163,14 @@ function formatContent(content) {
 	textContent += `# ${content.title}\n\n`;
 
 	// Loop through the sections
-	sections.forEach(section => {
+	sections.forEach((section, index) => {
 		// Set the section title
 		let sectionText = `## ${section}\n\n`;
 
 		switch (section) {
 			case 'License':
 				// Format the output.
-				sectionText += `This project is licensed under the ${content.license.name} - see the [${content.license.short} license](${content.license.link}) page for details.\n\n`;
+				sectionText += `This project is licensed under the ${content.license.name} - see the [${content.license.short} license](${content.license.link}) page for details.`;
 				break;
 
 			case 'Questions':
@@ -155,8 +191,41 @@ function formatContent(content) {
 		// Add the Table of Contents after the description.
 		if (section === 'Description') textContent += `${toc}\n\n`;
 	});
-
+	// Return the formatted text content
 	return textContent;
+}
+
+// Parse the Readme file contents.
+function parseFileContent(fileContent) {
+	fileContent   = fileContent.trim();
+	const matches = [...fileContent.matchAll(regex.sections)];
+	const license = fileContent.match(regex.license)[1];
+
+
+	// Set the defaults
+	prompts.email.default    = fileContent.match(regex.email)[1];
+	prompts.licenses.default = Object.values(licenses).find(licenseType => licenseType.short === license);
+	prompts.title.default    = fileContent.match(regex.title)[1];
+	prompts.userName.default = fileContent.match(regex.github)[1];
+
+	// Loop through the sections and set the defaults.
+	matches.forEach(matches => {
+		const section = matches[2];
+		const content = matches[3].trim();
+
+		switch (matches[2]) {
+			// Ignore these
+			case 'License':
+			case 'Questions':
+			case 'Table of Contents':
+				break;
+			default:
+				prompts[section.toLowerCase()].default = content;
+		}
+	});
+
+	// Return true
+	return true;
 }
 
 // Prompting the user for questions
@@ -171,23 +240,30 @@ async function promptUser(promptList) {
 
 // Initialization function
 async function init() {
+	const fileName = 'README.md';
+
+	// Check the command line for any arguments
 	checkCommandLine();
 
-	// Prompt the user with questions.
-	const title    = await promptUser(['title']);
-	const sections = await promptUser(['description', 'installation', 'usage', 'contribution', 'tests']);
-	const license  = await promptUser(['licenses']);
-	const contact  = await promptUser(['userName', 'email']);
+	// Check if the file exists and if so, handle it.
+	if (await checkFile(fileName)) {
+		// Prompt the user with questions.
+		const title    = await promptUser(['title']);
+		const sections = await promptUser(['description', 'installation', 'usage', 'contribution', 'tests']);
+		const license  = await promptUser(['licenses']);
+		const contact  = await promptUser(['userName', 'email']);
 
-	// Format the content
-	const content = formatContent({...title, sections, ...license, contact});
+		// Format the content
+		const content = formatContent({...title, sections, ...license, contact});
 
-	// Write the data to the readme file
-	writeToFile('README.md', content);
+		// Write the data to the readme file
+		writeToFile(fileName, content);
+	}
 }
 
 // Write to file
 async function writeToFile(fileName, data) {
+	// Write the file, if possible.
 	await fs.writeFile(fileName, data)
 	        .then(data => console.log('File created successfully!'))
 	        .catch(error => console.error(error));
