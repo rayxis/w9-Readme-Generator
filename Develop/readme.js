@@ -270,4 +270,4 @@ async function writeToFile(fileName, data) {
 }
 
 // Function call to initialize app
-await init();
+init();
