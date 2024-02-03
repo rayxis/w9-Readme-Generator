@@ -67,6 +67,8 @@ If you choose to update the existing file, the values will be defaulted.
 
 Upon successful completion of the questions, a README.md file will be created.
 
+A visual demonstration of this application can be viewed here: https://youtu.be/DqD0MpQn6rU
+
 ## User Story
 
 ```

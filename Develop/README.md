@@ -85,7 +85,7 @@ Any testing can be done on your own.
 For any questions, please feel free to reach out.
 
 - GitHub: [https://github.com/rayxis](https://github.com/rayxis)
-- Email: [ray@raybeliveau.com](ray@raybeliveau.com)
+- Email: [ray+portfolio@raybeliveau.com](ray+portfolio@raybeliveau.com)
 
 Please ensure to mention the project in the subject line for the email to get a prompt response.
 
